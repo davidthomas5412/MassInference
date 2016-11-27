@@ -15,6 +15,7 @@ DELTA = 10e-7
 class TestMap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        fetch()
         cls.lm = LensMap([GAMMA_1_FILE, GAMMA_2_FILE])
 
     def test_at(self):
@@ -28,7 +29,3 @@ class TestMap(unittest.TestCase):
     def test_physical_to_image(self):
         val = self.lm.physical_to_image(5, 5, mapfile=0)[0]
         self.assertAlmostEqual(val, 295401.89110698149, delta=DELTA)
-
-if __name__ == '__main__':
-    fetch()
-    unittest.main()
