@@ -34,4 +34,4 @@ class TestMap(unittest.TestCase):
 
     # TODO: plotting functional tests
     def test_plotting(self):
-        self.asserTrue(True)
+        self.assertTrue(True)
