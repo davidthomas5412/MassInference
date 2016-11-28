@@ -6,8 +6,8 @@ Tests for lens maps.
 """
 
 import unittest
-from massinference.map import LensMap
-from massinference.data import fetch, GAMMA_1_FILE, GAMMA_2_FILE
+from massinference.map import LensMap, KappaMap, ShearMap
+from massinference.data import fetch, KAPPA_FILE, GAMMA_1_FILE, GAMMA_2_FILE
 
 DELTA = 10e-7
 
@@ -17,6 +17,8 @@ class TestMap(unittest.TestCase):
     def setUpClass(cls):
         fetch()
         cls.lm = LensMap([GAMMA_1_FILE, GAMMA_2_FILE])
+        cls.km = KappaMap.default()
+        cls.sm = ShearMap.default()
 
     def test_at(self):
         val = self.lm.at(0.0, 0.0, mapfile=1, coordinate_system='world')
@@ -29,3 +31,7 @@ class TestMap(unittest.TestCase):
     def test_physical_to_image(self):
         val = self.lm.physical_to_image(5, 5, mapfile=0)[0]
         self.assertAlmostEqual(val, 295401.89110698149, delta=DELTA)
+
+    # TODO: plotting functional tests
+    def test_plotting(self):
+        self.asserTrue(True)
