@@ -93,3 +93,5 @@ def set_axes(fig, lx, ly, header, imsubplot):
         dec.set_ticks(number=num)
 
     return ax
+
+def check_limits(limits, coords):

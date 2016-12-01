@@ -9,7 +9,6 @@ import struct
 import numpy as np
 import astropy.io.fits as pyfits
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
 from .data import KAPPA_FILE, GAMMA_1_FILE, GAMMA_2_FILE
 from .plot import set_figure_size, set_axes
@@ -139,7 +138,7 @@ class LensMap(object):
         """
         i = self.wcs[mapfile]['LTV1'] + self.wcs[mapfile]['LTM1_1']*x # x in rad
         j = self.wcs[mapfile]['LTV2'] + self.wcs[mapfile]['LTM2_2']*y # y in rad
-        return i,j
+        return i, j
 
     def world_to_image(self, a, d, mapfile=0):
         """
@@ -318,6 +317,7 @@ class KappaMap(LensMap):
         """
         #TODO: docstring
 
+        check_limits(subplot, cords)
         if fig is None:
             fig = plt.figure('KappaMap')
 
@@ -326,7 +326,7 @@ class KappaMap(LensMap):
         set_figure_size(fig, fig_size, lx, ly)
         imsubplot = [pix_xi, pix_xf, pix_yi, pix_yf]
         ax = set_axes(fig, lx, ly, self.headers[0], imsubplot)
-        values_to_display = self.values[0][int(pix_yi):int(pix_yf), int(pix_xi):int(pix_xf)]
+        values_to_display = self.values[0]
         # Get the colormap limits
         kmin = np.min(values_to_display)
         kmax = np.max(values_to_display)
@@ -344,16 +344,20 @@ class KappaMap(LensMap):
         return KappaMap(KAPPA_FILE)
 
 
-#TODO: add docstrings
 class ShearMap(LensMap):
-    def __init__(self, gammafiles):
-        super(ShearMap, self).__init__(gammafiles)
+    """
+    Read in, store, transform and interrogate a pair of shear maps.
+
+    Args:
+        gamma_files(list(str)): list of the two filenames of shear maps
+
+    """
+    def __init__(self, gamma_files):
+        super(ShearMap, self).__init__(gamma_files)
 
     def plot(self, fig=None, fig_size=10, subplot=None, coords='world'):  # fig_size in inches
         """
         Plot the shear field with shear sticks.
-
-        Note: If fig argument is not None, then subplot must also not be None.
 
         Args:
             fig_size        Figure size in inches
@@ -374,12 +378,12 @@ class ShearMap(LensMap):
             ax = fig.get_axes()[0]
 
         # Retrieve gamma values in desired subplot
-        gamma1 = self.values[0][pix_yi:pix_yf, pix_xi:pix_xf]
-        gamma2 = self.values[1][pix_yi:pix_yf, pix_xi:pix_xf]
+        gamma1 = self.values[0]#[pix_yi:pix_yf, pix_xi:pix_xf] TODO:
+        gamma2 = self.values[1]#[pix_yi:pix_yf, pix_xi:pix_xf] TODO:
 
         # Create arrays of shear stick positions, one per pixel in world coordinates
         mesh_x, mesh_y = np.meshgrid(np.arange(subplot[0], subplot[1], -self.PIXSCALE[0]),
-                           np.arange(subplot[2], subplot[3], self.PIXSCALE[0]))
+                                     np.arange(subplot[2], subplot[3], self.PIXSCALE[0]))
 
         # Calculate the modulus and angle of each shear
         mod_gamma = np.sqrt(gamma1 * gamma1 + gamma2 * gamma2)
@@ -388,7 +392,6 @@ class ShearMap(LensMap):
         # Sticks in world coords need x reversed, to account for left-handed
         # system:
         pix_l = np.mean([pix_lx, pix_ly])
-        l_mean = np.mean([lx, ly])
         dx = mod_gamma * np.cos(phi_gamma) * pix_l
         dy = mod_gamma * np.sin(phi_gamma) * pix_l
         # Plot downsampled 2D arrays of shear sticks in current axes.
