@@ -11,7 +11,7 @@ import astropy.io.fits as pyfits
 import matplotlib.pyplot as plt
 
 from .data import KAPPA_FILE, GAMMA_1_FILE, GAMMA_2_FILE
-from .plot import set_figure_size, set_axes
+from .plot import Limits, PlotConfig, set_figure_size, make_wcs_axes
 
 
 class LensMap(object):
@@ -76,7 +76,7 @@ class LensMap(object):
         assert self.field[1:] == self.field[:-1]
         assert self.NX[1:] == self.NX[:-1]
 
-    def at(self, x, y, mapfile=0, coordinate_system='world'):
+    def at(self, x, y, mapfile=0):
         """
         Interpolating the map to return a single value at a specified point.
 
@@ -85,18 +85,11 @@ class LensMap(object):
             y (float): the y coordinate
             mapfile (optional int): if shearmap then index of shearmap to retrieve values
                 from, otherwise ignore.
-            coordinate_system (optional str): coordinate system of (x,y). Defaults to
-                'world'.
 
         Returns:
-            float: map value at provided coordinates in provided coordinate system.
+            float: map value at provided coordinates in world coordinate system.
         """
-        if coordinate_system == 'world':
-            i, j = self.world_to_image(x, y, mapfile)
-        elif coordinate_system == 'physical':
-            i, j = self.physical_to_image(x, y, mapfile)
-        else:
-            i, j = x, y
+        i, j = self.world_to_image(x, y, mapfile)
         return self.lookup(i, j, mapfile)
 
     def set_wcs(self, i):
@@ -125,21 +118,6 @@ class LensMap(object):
         self.wcs[i]['LTM1_1'] = 1.0 / np.deg2rad(self.PIXSCALE[i])
         self.wcs[i]['LTM2_2'] = 1.0 / np.deg2rad(self.PIXSCALE[i])
 
-    def physical_to_image(self, x, y, mapfile=0):
-        """
-        Args:
-            x (float): physical x-coordinate
-            y (float): physical y-coordinate
-            mapfile (optional int): if shearmap then index of shearmap to retrieve values
-                from, otherwise ignore.
-
-        Returns:
-            float, float: image coordinates
-        """
-        i = self.wcs[mapfile]['LTV1'] + self.wcs[mapfile]['LTM1_1']*x # x in rad
-        j = self.wcs[mapfile]['LTV2'] + self.wcs[mapfile]['LTM2_2']*y # y in rad
-        return i, j
-
     def world_to_image(self, a, d, mapfile=0):
         """
         Args:
@@ -162,38 +140,23 @@ class LensMap(object):
             'CRPIX2']
         return i, j
 
-    #TODO: fill in all these docstrings
-    #TODO: add tests for these
-    def image_to_physical(self,i,j,mapfile=0):
-        x = (i - self.wcs[mapfile]['LTV1'])/self.wcs[mapfile]['LTM1_1'] # x in rad
-        y = (j - self.wcs[mapfile]['LTV2'])/self.wcs[mapfile]['LTM2_2'] # y in rad
-        return x,y
-
-     # Only approximate WCS transformations - assumes dec=0.0 and small field
-    def image_to_world(self,i,j,mapfile=0):
+    def image_to_world(self, i, j, mapfile=0):
         """
         Note: only approximate WCS transformations - assumes dec=0.0 and small field
 
-        :param i:
-        :param j:
-        :param mapfile:
-        :return:
+        Args:
+            i (float): x-axis pixel coordinate
+            j (float): y-axis pixel coordinate
+            mapfile (optional int): if shearmap then index of shearmap to retrieve values
+                from, otherwise ignore.
+
+        Returns:
+            float, float: approximate world coordinates
         """
         a = self.wcs[mapfile]['CRVAL1'] + self.wcs[mapfile]['CD1_1']*(i - self.wcs[mapfile]['CRPIX1'])
-        #if a < 0.0: a += 360.0 : We are using WCS with negative RAs in degrees, now
+        # if a < 0.0: a += 360.0 : We are using WCS with negative RAs in degrees, now
         d = self.wcs[mapfile]['CRVAL2'] + self.wcs[mapfile]['CD2_2']*(j - self.wcs[mapfile]['CRPIX2'])
-        return a,d
-
-    def physical_to_world(self,x,y,mapfile=0):
-        a = -np.rad2deg(x) - self.map_x[mapfile]*self.field[mapfile]
-        #if a < 0.0: a += 360.0 :we are using nRA instead now
-        d = np.rad2deg(y) + self.map_y[mapfile]*self.field[mapfile]
-        return a,d
-
-    def world_to_physical(self,a,d,mapfile=0):
-        x = -np.deg2rad(a + self.map_x[mapfile]*self.field[mapfile])
-        y = np.deg2rad(d - self.map_y[mapfile]*self.field[mapfile])
-        return x,y
+        return a, d
 
     def lookup(self, i, j, mapfile):
         """
@@ -208,7 +171,7 @@ class LensMap(object):
             mapfile (int): mapfile index
 
         Return:
-             float: weighted mean of 4 neighbouring pixels, as suggested by Stefan.
+             float: weighted mean of 4 neighbouring pixels, as suggested by Stefan
         """
         ix = int(j)
         iy = int(i)
@@ -225,64 +188,6 @@ class LensMap(object):
 
         return mean
 
-    def setup_plot(self, subplot=None, coords='world'):
-        """
-        Set up a plot of the map.
-
-        Args:
-            subplot (list(float)): list of four plot limits [xmin, xmax, ymin, ymax].
-            coords (string): input coordinate system for the subplot: 'pixel', 'physical',
-                or 'world'.
-
-        Returns:
-
-        """
-        # TODO: fill this in
-
-        if subplot is None:
-            # Default subplot is entire image
-            ai, di = self.image_to_world(0, 0)
-            af, df = self.image_to_world(self.NX[0], self.NX[0])
-            subplot = [ai, af, di, df]
-
-        xi, xf = subplot[0], subplot[1]  # x-limits for subplot
-        yi, yf = subplot[2], subplot[3]  # y-limits for subplot
-
-        if coords == 'world':
-            # Subplot is already in world coordinates
-            lx = 1.0 * abs(xf - xi)  # length of x-axis subplot
-            ly = 1.0 * abs(yf - yi)  # length of y-axis subplot
-
-        elif coords == 'physical':
-            # Convert subplot bounds to world coordinates
-            xi, yi = self.physical_to_world(xi, yi)
-            xf, yf = self.physical_to_world(xf, yf)
-            lx = 1.0 * abs(xf - xi)
-            ly = 1.0 * abs(yf - yi)
-            subplot = [xi, xf, yi, yf]
-
-        elif coords == 'pixel':
-            # Convert subplot bounds to world coordinates
-            xi, yi = self.image_to_world(xi, yi)
-            xf, yf = self.image_to_world(xf, yf)
-            lx = 1.0 * abs(xf - xi)
-            ly = 1.0 * abs(yf - yi)
-            subplot = [xi, xf, yi, yf]
-
-        else:
-            raise IOError('Error: Subplot bounds can only be in pixel, physical, or world '
-                          'coordinates.')
-
-        # Convert subplot bounds to (floating point) pixel values
-        pix_xi, pix_yi = self.world_to_image(xi, yi)
-        pix_xf, pix_yf = self.world_to_image(xf, yf)
-
-        # Pixel length of subplot
-        pix_lx = pix_xf - pix_xi
-        pix_ly = pix_yf - pix_yi
-
-        return pix_xi, pix_xf, pix_yi, pix_yf, lx, ly, pix_lx, pix_ly, subplot
-
 
 class KappaMap(LensMap):
     """
@@ -294,46 +199,37 @@ class KappaMap(LensMap):
     def __init__(self, kappa_file):
         super(KappaMap, self).__init__(kappa_file)
 
-    def plot(self, fig=None, fig_size=10, subplot=None, coords='world'):
+    def plot(self, plot_config=None, fig_size=10, limits=None):
         """
         Plot the convergence as a heatmap image.
 
-        Note:
+        Args:
+            plot_config (optional PlotConfig): plot config to use if overlay, otherwise defaults to
+                None and makes new plot
+            fig_size (optional float): figure size in inches, defaults to 10
+            limits (optional list(float)): list of four plot limits [xi, xf, yi, yf], defaults to
+                full file
 
-        :param fig:
-        :param fig_size:
-        :param subplot:
-        :param coords:
-        :return:
-
-        Parameters
-        ----------
-        fig_size : float
-            Figure size in inches
-        subplot : list, float
-            Plot limits [xmin,xmax,ymin,ymax]
-        coords : string
-            Input coordinate system for the subplot: 'pixel', 'physical', or 'world'
+        Returns:
+            PlotConfig: plot configuration object which can be used to overlay plots
         """
-        #TODO: docstring
+        if plot_config is None:
+            fig = plt.figure()
+            if limits is None:
+                limits = Limits.default(self)
+            pix_limits = limits.to_pixels(self)
+            set_figure_size(fig, fig_size, limits)
+            ax = make_wcs_axes(fig, limits, pix_limits, self.headers[0])
+            plot_config = PlotConfig(fig, ax, limits)
 
-        check_limits(subplot, cords)
-        if fig is None:
-            fig = plt.figure('KappaMap')
-
-        pix_xi, pix_xf, pix_yi, pix_yf, lx, ly, pix_lx, pix_ly, subplot = self.setup_plot(
-            subplot, coords)
-        set_figure_size(fig, fig_size, lx, ly)
-        imsubplot = [pix_xi, pix_xf, pix_yi, pix_yf]
-        ax = set_axes(fig, lx, ly, self.headers[0], imsubplot)
-        values_to_display = self.values[0]
         # Get the colormap limits
-        kmin = np.min(values_to_display)
-        kmax = np.max(values_to_display)
-        cax = ax.imshow(values_to_display, vmin=kmin, vmax=kmax, cmap='inferno', origin='lower')
-        fig.colorbar(cax, ticks=[kmin, (kmin+kmax) / 2.0, kmax], label='Convergence '
-                                                                               '$\kappa$')
-        return fig, ax, subplot
+        kmin = np.min(self.values[0])
+        kmax = np.max(self.values[0])
+        cax = plot_config.ax.imshow(self.values[0], vmin=kmin, vmax=kmax, cmap='inferno',
+                                    origin='lower')
+        plot_config.fig.colorbar(cax, ticks=[kmin, (kmin+kmax) / 2.0, kmax], label='Convergence '
+                                                                                   '$\kappa$')
+        return PlotConfig(fig, ax, limits)
 
     @staticmethod
     def default():
@@ -355,60 +251,67 @@ class ShearMap(LensMap):
     def __init__(self, gamma_files):
         super(ShearMap, self).__init__(gamma_files)
 
-    def plot(self, fig=None, fig_size=10, subplot=None, coords='world'):  # fig_size in inches
+    def plot(self, plot_config=None, fig_size=10, limits=None):  # fig_size in inches
         """
         Plot the shear field with shear sticks.
 
         Args:
-            fig_size        Figure size in inches
-            subplot         List of four plot limits [xmin,xmax,ymin,ymax]
-            coords          Type of coordinates inputted for the subplot:
-                            'pixel', 'physical', or 'world'
+            fig (optional matplotlib.pyplot.figure): figure to plot on if want to overlay, defaults to None -> new
+                plot
+            fig_size (optional float): figure size in inches, defaults to 10
+            limits (optional list(float)): list of four plot limits [xi, xf, yi, yf], defaults to
+                full file
+
+        Returns:
+            PlotConfig: plot configuration object which can be used to overlay plots
         """
-        #TODO: docstring
-        pix_xi, pix_xf, pix_yi, pix_yf, lx, ly, pix_lx, pix_ly, subplot = self.setup_plot(
-            subplot, coords)
-        imsubplot = [pix_xi, pix_xf, pix_yi, pix_yf]
-
-        if fig is None:
-            fig = plt.figure('ShearMap')
-            set_figure_size(fig, fig_size, lx, ly)
-            ax = set_axes(fig, lx, ly, self.headers[0], imsubplot)
+        if plot_config is None:
+            fig = plt.figure()
+            if limits is None:
+                limits = Limits.default(self)
+            pix_limits = limits.to_pixels(self)
+            set_figure_size(fig, fig_size, limits)
+            ax = make_wcs_axes(fig, limits, pix_limits, self.headers[0])
+            plot_config = PlotConfig(fig, ax, limits)
         else:
-            ax = fig.get_axes()[0]
+            limits = plot_config.limits
+            pix_limits = plot_config.limits.to_pixels(self)
 
-        # Retrieve gamma values in desired subplot
-        gamma1 = self.values[0]#[pix_yi:pix_yf, pix_xi:pix_xf] TODO:
-        gamma2 = self.values[1]#[pix_yi:pix_yf, pix_xi:pix_xf] TODO:
+        # Retrieve gamma values in desired limits
+        gamma1 = self.values[0][int(pix_limits.yi):int(pix_limits.yf),
+                                int(pix_limits.xi):int(pix_limits.xf)]
+        gamma2 = self.values[1][int(pix_limits.yi):int(pix_limits.yf),
+                                int(pix_limits.xi):int(pix_limits.xf)]
 
         # Create arrays of shear stick positions, one per pixel in world coordinates
-        mesh_x, mesh_y = np.meshgrid(np.arange(subplot[0], subplot[1], -self.PIXSCALE[0]),
-                                     np.arange(subplot[2], subplot[3], self.PIXSCALE[0]))
+        mesh_x, mesh_y = np.meshgrid(np.arange(limits.xi, limits.xf, -self.PIXSCALE[0]),
+                                     np.arange(limits.yi, limits.yf, self.PIXSCALE[0]))
 
         # Calculate the modulus and angle of each shear
         mod_gamma = np.sqrt(gamma1 * gamma1 + gamma2 * gamma2)
         phi_gamma = np.arctan2(gamma2, gamma1) / 2.0
 
-        # Sticks in world coords need x reversed, to account for left-handed
-        # system:
-        pix_l = np.mean([pix_lx, pix_ly])
-        dx = mod_gamma * np.cos(phi_gamma) * pix_l
-        dy = mod_gamma * np.sin(phi_gamma) * pix_l
+        # Sticks in world coords need x reversed, to account for left-handed system
+        pix_l_mean = np.mean([pix_limits.lx, pix_limits.ly])
+        dx = mod_gamma * np.cos(phi_gamma) * pix_l_mean
+        dy = mod_gamma * np.sin(phi_gamma) * pix_l_mean
+
+        # Pixel sampling rate for plotting of shear maps
+        downsampling_rate = 40.0
+        shear_spacing = int(np.floor(pix_limits.lx / downsampling_rate))
+
         # Plot downsampled 2D arrays of shear sticks in current axes.
-        # Pixel sampling rate for plotting of shear maps:
-        shear_spacing = np.floor(pix_lx / 40.0)
+        plot_config.ax.quiver(mesh_x[::shear_spacing, ::shear_spacing],
+                              mesh_y[::shear_spacing, ::shear_spacing],
+                              dx[::shear_spacing, ::shear_spacing],
+                              dy[::shear_spacing, ::shear_spacing],
+                              alpha=0.8,
+                              color='b',
+                              headwidth=0,
+                              pivot='mid',
+                              transform=plot_config.ax.get_transform('world'))
 
-        ax.quiver(mesh_x[::shear_spacing, ::shear_spacing],
-                  mesh_y[::shear_spacing, ::shear_spacing],
-                  dx[::shear_spacing, ::shear_spacing],
-                  dy[::shear_spacing, ::shear_spacing],
-                  alpha=0.8,
-                  color='b',
-                  headwidth=0,
-                  pivot='middle',
-                  transform=ax.get_transform('world'))
-
-        return fig, ax, subplot
+        return plot_config
 
     @staticmethod
     def default():

@@ -34,4 +34,7 @@ class TestMap(unittest.TestCase):
 
     # TODO: plotting functional tests
     def test_plotting(self):
+        fig, ax, limits = self.km.plot()
+        self.sm.plot()
+        self.sm.plot()
         self.assertTrue(True)
