@@ -95,7 +95,7 @@ class SourceCatalogFactory(object):
         df = DataFrame()
         area = (self.limits.xf.arcmin - self.limits.xi.arcmin) * (self.limits.yf.arcmin -
                                                            self.limits.yi.arcmin)
-        count = int(area * self.density)
+        count = abs(int(area * self.density)) #TODO: figure out negative area
         df[SourceCatalog.ID] = range(count)
         df[SourceCatalog.RA] = uniform(self.limits.xi.radian, self.limits.xf.radian,
                                        count)
