@@ -4,6 +4,7 @@
 """
 Common plotting objects and functions.
 """
+from .angle import Angle
 
 import numpy as np
 from astropy.wcs import WCS
@@ -38,8 +39,22 @@ class Limits(object):
         self.yf = yf
         if check:
             self.check_limits()
-        self.lx = float(abs(xf - xi))
-        self.ly = float(abs(yf - yi))
+            #TODO: rethink limits
+        # self.lx = float(abs(xf - xi))
+        # self.ly = float(abs(yf - yi))
+
+    def area(self):
+        return (self.xf.arcmin - self.xi.arcmin) * (self.yf.arcmin - self.yi.arcmin)
+
+    def add_perimeter(self, radius):
+        ret = Limits(
+            # left handed coordinate system
+            Angle.from_arcmin(self.xi.arcmin + radius.arcmin),
+            Angle.from_arcmin(self.xf.arcmin - radius.arcmin),
+            Angle.from_arcmin(self.yi.arcmin - radius.arcmin),
+            Angle.from_arcmin(self.yf.arcmin + radius.arcmin)
+                    )
+        return ret
 
     def check_limits(self):
         """
