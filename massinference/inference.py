@@ -7,7 +7,7 @@ TODO
 from numpy import mean, sqrt, log, pi, sum
 
 
-def log_likelihood(g1, g2, e1, e2, sigma_e):
+def log_likelihood(g, e1, e2, sigma_e):
     """
         Compare observed ellipticity to ray traced reduced shear.
     """
