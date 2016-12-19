@@ -57,9 +57,6 @@ class LightconeManager(object):
     def __init__(self, source_catalog, halo_factory, radius=4):
         self.source_catalog = source_catalog
         self.halo_factory = halo_factory
-        # TODO: add back
-        # halo_catalog = halo_factory.generate()
-        # z = halo_catalog.column_fast(HaloCatalog.Z)[0] #constant
         halo_catalog = halo_factory.mutable_mass_halo_catalog
         halo_z = halo_catalog.column_fast(HaloCatalog.Z)
         source_z = source_catalog.dataframe[SourceCatalog.Z].max()
@@ -82,8 +79,7 @@ class LightconeManager(object):
         results = zeros((steps, len(self.lightcones)), dtype=complex)
         for step in xrange(steps):
             # Make a Simple Monte Carlo draw:
-            #TODO: change back to self.halo_factory.generate()
-            halo_catalog = self.halo_factory.mutable_mass_halo_catalog
+            halo_catalog = self.halo_factory.generate()
             # Compute quantities for each halo:
             m200 = halo_catalog.column_fast(HaloCatalog.HALO_MASS)
             r200 = (3 * m200 / (800 * 3.14159 * self.rho_crit)) ** (1./3)
@@ -96,7 +92,7 @@ class LightconeManager(object):
             truncation_scale = 10
             r_trunc = truncation_scale * r200
             x_trunc = r_trunc / r_s
-            for i,lightcone in enumerate(self.lightcones):
+            for i, lightcone in enumerate(self.lightcones):
                 results[step, i] = lightcone.compute_shear(kappa_s, x_trunc, r_s)
         return results
 
