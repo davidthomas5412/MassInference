@@ -18,7 +18,7 @@ class Angle(object):
 
     @staticmethod
     def radian_to_arcmin(radian):
-        return radian * ((180.0 * 60.0) / pi)
+        return radian * (180.0 / pi) * 60.0
 
     @staticmethod
     def arcmin_to_degree(arcmin):
