@@ -6,12 +6,13 @@ Catalog.
 
 TODO: add plotting
 """
-from pandas import DataFrame, read_table
+from pandas import DataFrame, read_csv, read_table
 from numpy import full, sqrt, power, arctan2, rad2deg
 from numpy.random import uniform, normal
 from .data import GUO_FILE
 from .seed import set_numpy_random_seed
 
+#TODO: allow access to columns directly via []
 
 class Catalog(object):
     """
@@ -65,6 +66,13 @@ class SourceCatalog(Catalog):
 
     def __init__(self, dataframe):
         super(SourceCatalog, self).__init__(dataframe)
+
+    #TODO: handle csv vs table
+    @staticmethod
+    def from_file(filename, keymap):
+        dataframe = read_csv(filename, usecols=keymap.keys())
+        dataframe.rename(columns=keymap, inplace=True)
+        return SourceCatalog(dataframe)
 
 
 class SourceCatalogFactory(object):
@@ -126,17 +134,20 @@ class HaloCatalog(Catalog):
 
     @staticmethod
     def from_file(filename, keymap):
-        return HaloCatalog(read_table(filename, usecols=keymap.values()).rename(keymap))
+        dataframe = read_table(filename, usecols=keymap.keys())
+        dataframe.rename(columns=keymap, inplace=True)
+        return HaloCatalog(dataframe)
 
+    #TODO: switch this map
     @staticmethod
     def default():
         keymap = {
-            HaloCatalog.ID: 'GalID',
-            HaloCatalog.HALO_MASS: 'M_Subhalo[M_sol/h]',
-            HaloCatalog.STELLAR_MASS: 'M_Stellar[M_sol/h]',
-            HaloCatalog.RA: 'pos_0[rad]',
-            HaloCatalog.DEC: 'pos_1[rad]',
-            HaloCatalog.Z: 'z_spec'
+            'GalID': HaloCatalog.ID,
+            'M_Subhalo[M_sol/h]': HaloCatalog.HALO_MASS,
+            'M_Stellar[M_sol/h]': HaloCatalog.STELLAR_MASS,
+            'pos_0[rad]': HaloCatalog.RA,
+            'pos_1[rad]': HaloCatalog.DEC,
+            'z_spec': HaloCatalog.Z,
         }
         return HaloCatalog.from_file(GUO_FILE, keymap=keymap)
 
@@ -165,20 +176,24 @@ class MutableHaloMassCatalog(HaloCatalog):
         super(MutableHaloMassCatalog, self).__init__(dataframe)
 
     @staticmethod
-    def from_file(filename, keymap, limits):
+    def from_file(filename, keymap, limits, z):
         dataframe = read_table(filename, usecols=keymap.keys())
         dataframe.rename(columns=keymap, inplace=True)
+        dataframe[HaloCatalog.RA] = -dataframe[HaloCatalog.RA] # left handed coordinate system
         dataframe = dataframe[
-                        (dataframe[HaloCatalog.RA] > limits.xi.radian) &
-                        (dataframe[HaloCatalog.RA] < limits.xf.radian) &
+                        (dataframe[HaloCatalog.RA] > limits.xf.radian) &
+                        (dataframe[HaloCatalog.RA] < limits.xi.radian) &
                         (dataframe[HaloCatalog.DEC] > limits.yi.radian) &
                         (dataframe[HaloCatalog.DEC] < limits.yf.radian) &
-                        (dataframe[HaloCatalog.HALO_MASS] > 0)]\
+                        (dataframe[HaloCatalog.HALO_MASS] > 0) &
+                        (dataframe[HaloCatalog.Z] <= z)
+                        ]\
             .reset_index(drop=True)
         return MutableHaloMassCatalog(dataframe)
 
+    #TODO: best sequence of signatures for radius
     @staticmethod
-    def default(limits):
+    def default(limits, z):
         keymap = {
             'GalID': HaloCatalog.ID,
             'M_Subhalo[M_sol/h]': HaloCatalog.HALO_MASS,
@@ -187,7 +202,7 @@ class MutableHaloMassCatalog(HaloCatalog):
             'pos_1[rad]': HaloCatalog.DEC,
             'z_spec': HaloCatalog.Z
         }
-        return MutableHaloMassCatalog.from_file(GUO_FILE, keymap, limits)
+        return MutableHaloMassCatalog.from_file(GUO_FILE, keymap, limits, z)
 
     def set_halo_mass(self, column):
         self.dataframe[HaloCatalog.HALO_MASS] = column
